@@ -153,6 +153,8 @@ def save_vars(path, vars_d, backend):
             pickle.dump(vars_d, f)
     elif backend=='hkl':
         # TODO optional compression
+        # TODO hickle can't save StringIO
+        del vars_d['_captured_io']
         hickle.dump(vars_d, path, mode='w', compression='gzip')
     elif backend=='joblib':
         joblib.dump(vars_d, path, compress=3)
