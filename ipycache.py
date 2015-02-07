@@ -11,8 +11,10 @@ long-lasting computations.
 import inspect, os, sys, textwrap, re
 import gzip
 
+import numpy as np
 import hickle
 import joblib
+import bloscpack as blpk
 
 # Our own
 from IPython.config.configurable import Configurable
@@ -123,6 +125,13 @@ def load_vars(path, vars, backend):
         cache = hickle.load(path)
     elif backend=='joblib':
         cache = joblib.load(path)
+    elif backend=='blpk.dir':
+        cache = {}
+        for fname in os.listdir(path):
+            key,ext = os.path.splitext(fname)
+            full_fname = os.path.join(path, fname)
+            cache[key] = blpk.unpack_ndarray_file(full_fname)
+        return cache
     else:
         raise ValueError('Unknown storage backend {0}'.format(backend))
 
@@ -156,6 +165,19 @@ def save_vars(path, vars_d, backend):
         # TODO hickle can't save StringIO
         del vars_d['_captured_io']
         hickle.dump(vars_d, path, mode='w', compression='gzip')
+    elif backend=='blpk.dir':
+        del vars_d['_captured_io']
+        try:
+            os.mkdir(path)
+        except OSError:
+            pass
+
+        for key,val in vars_d.items():
+            # TODO just npy for now
+            if not isinstance(val, np.ndarray):
+                print('Warning: skipping {0}, only numpy for now'.format(key))
+            full_fname = os.path.join(path, key+'.blpk')
+            blpk.pack_ndarray_file( val, full_fname )
     elif backend=='joblib':
         joblib.dump(vars_d, path, compress=3)
     else:
@@ -389,6 +411,8 @@ class CacheMagics(Magics, Configurable):
                 backend = 'hkl'
             elif path.endswith('.npyz'):
                 backend = 'joblib'
+            elif path.endswith('.blpk.dir'):
+                backend = 'blpk.dir'
             else:
                 backend = 'pkl'
         cache(cell, path, vars=vars,
