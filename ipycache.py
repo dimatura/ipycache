@@ -11,6 +11,8 @@ long-lasting computations.
 import inspect, os, sys, textwrap, re
 import gzip
 
+import hickle
+
 # Our own
 from IPython.config.configurable import Configurable
 from IPython.core import magic_arguments
@@ -103,30 +105,33 @@ def load_vars(path, vars, backend):
       * cache: a dictionary {var_name: var_value}.
 
     """
-    if backend in ('pkl', 'pkl.gz'):
-        if backend=='pkl':
-            open_fn = open
-        else:
-            open_fn = gzip.open
-
-        with open_fn(path, 'rb') as f:
-            # Load the variables from the cache.
+    # Load the variables from the cache.
+    if backend=='pkl':
+        with open(path, 'rb') as f:
             try:
                 cache = pickle.load(f)
             except EOFError as e:
                 raise IOError(e.message)
-
-            # Check that all requested variables could be loaded successfully
-            # from the cache.
-            missing_vars = sorted(set(vars) - set(cache.keys()))
-            if missing_vars:
-                raise ValueError(("The following variables could not be loaded "
-                    "from the cache: {0:s}").format(
-                    ', '.join(["'{0:s}'".format(var) for var in missing_vars])))
-
-            return cache
+    elif backend=='pkl.gz':
+        with gzip.open(path, 'rb') as f:
+            try:
+                cache = pickle.load(f)
+            except EOFError as e:
+                raise IOError(e.message)
+    elif backend=='hkl':
+        cache = hickle.load(path)
     else:
         raise ValueError('Unknown storage backend {0}'.format(backend))
+
+    # Check that all requested variables could be loaded successfully
+    # from the cache.
+    missing_vars = sorted(set(vars) - set(cache.keys()))
+    if missing_vars:
+        raise ValueError(("The following variables could not be loaded "
+            "from the cache: {0:s}").format(
+            ', '.join(["'{0:s}'".format(var) for var in missing_vars])))
+
+    return cache
 
 def save_vars(path, vars_d, backend):
     """Save variables into a pickle file.
@@ -137,12 +142,16 @@ def save_vars(path, vars_d, backend):
       * vars_d: a dictionary {var_name: var_value}.
 
     """
+    print vars_d
     if backend=='pkl':
         with open(path, 'wb') as f:
             pickle.dump(vars_d, f)
     elif backend=='pkl.gz':
         with gzip.open(path, 'wb') as f:
             pickle.dump(vars_d, f)
+    elif backend=='hkl':
+        # TODO optional compression
+        hickle.dump(vars_d, path, mode='w', compression='gzip')
     else:
         raise ValueError('Unknown storage backend {0}'.format(backend))
 
@@ -370,6 +379,8 @@ class CacheMagics(Magics, Configurable):
                 backend = 'pkl'
             elif path.endswith('.pkl.gz') or path.endswith('.pickle.gz'):
                 backend = 'pkl.gz'
+            elif path.endswith('.hkl'):
+                backend = 'hkl'
             else:
                 backend = 'pkl'
         cache(cell, path, vars=vars,
