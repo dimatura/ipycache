@@ -12,6 +12,7 @@ import inspect, os, sys, textwrap, re
 import gzip
 
 import hickle
+import joblib
 
 # Our own
 from IPython.config.configurable import Configurable
@@ -120,6 +121,8 @@ def load_vars(path, vars, backend):
                 raise IOError(e.message)
     elif backend=='hkl':
         cache = hickle.load(path)
+    elif backend=='joblib':
+        cache = joblib.load(path)
     else:
         raise ValueError('Unknown storage backend {0}'.format(backend))
 
@@ -142,7 +145,6 @@ def save_vars(path, vars_d, backend):
       * vars_d: a dictionary {var_name: var_value}.
 
     """
-    print vars_d
     if backend=='pkl':
         with open(path, 'wb') as f:
             pickle.dump(vars_d, f)
@@ -152,6 +154,8 @@ def save_vars(path, vars_d, backend):
     elif backend=='hkl':
         # TODO optional compression
         hickle.dump(vars_d, path, mode='w', compression='gzip')
+    elif backend=='joblib':
+        joblib.dump(vars_d, path, compress=3)
     else:
         raise ValueError('Unknown storage backend {0}'.format(backend))
 
@@ -381,6 +385,8 @@ class CacheMagics(Magics, Configurable):
                 backend = 'pkl.gz'
             elif path.endswith('.hkl'):
                 backend = 'hkl'
+            elif path.endswith('.npyz'):
+                backend = 'joblib'
             else:
                 backend = 'pkl'
         cache(cell, path, vars=vars,
