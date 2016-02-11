@@ -12,15 +12,17 @@ import inspect, os, sys, textwrap, re
 import gzip
 
 import numpy as np
-import hickle
+#import hickle
 import joblib
 import bloscpack as blpk
 
 # Our own
-from IPython.config.configurable import Configurable
+#from IPython.config.configurable import Configurable
+from traitlets.config.configurable import Configurable
 from IPython.core import magic_arguments
 from IPython.core.magic import Magics, magics_class, line_magic, cell_magic
-from IPython.utils.traitlets import Unicode
+#from IPython.utils.traitlets import Unicode
+from traitlets import Unicode
 from IPython.utils.io import CapturedIO, capture_output
 from IPython.display import clear_output
 
